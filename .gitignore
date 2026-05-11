@@ -1,0 +1,18 @@
+# Dependency directories
+__pycache__/
+*.pyc
+
+# Environment and Database
+credentials.db
+.env
+.key
+
+# Logs and Screenshots
+logs/
+*.png
+*.jpg
+
+# OS files
+.DS_Store
+.idea/
+.vscode/
