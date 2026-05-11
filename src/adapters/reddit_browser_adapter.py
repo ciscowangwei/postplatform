@@ -63,33 +63,82 @@ class RedditBrowserAdapter(BaseAdapter):
                 await page.goto(f"https://www.reddit.com/r/{subreddit}/")
                 
                 # --- Human Assistance Window ---
-                # Wait for the user to handle potential CAPTCHAs or login challenges
-                # in the visible browser window.
                 print("Browser opened. Please handle any CAPTCHAs or login checks in the window now...")
                 await asyncio.sleep(60) 
                 print("Wait time finished, proceeding with the post...")
                 # ------------------------------
 
                 # 2. Click "Create Post"
-                # Reddit's selectors change often, so we use text-based or aria-label selectors
-                await page.click("text=Create Post")
+                # Try multiple selectors for the "Create Post" button
+                create_post_selectors = ["text=Create Post", "button:has-text('Create Post')", "a[href*='/submit']"]
+                posted = False
+                for selector in create_post_selectors:
+                    try:
+                        await page.click(selector, timeout=5000)
+                        posted = True
+                        break
+                    except:
+                        continue
+                if not posted:
+                    raise RuntimeError("Could not find 'Create Post' button")
 
-                # 3. Fill Title
-                await page.fill("tje-textarea", content.get('title', '')) # Common Reddit title selector
+                # 3. Fill Title (with fallback selectors)
+                title_text = content.get('title', '')
+                title_selectors = [
+                    "tje-textarea", 
+                    "input[placeholder*='Title']", 
+                    "textarea[placeholder*='Title']",
+                    "[aria-label*='Title']"
+                ]
+                title_filled = False
+                for selector in title_selectors:
+                    try:
+                        await page.fill(selector, title_text, timeout=5000)
+                        title_filled = True
+                        break
+                    except:
+                        continue
+                if not title_filled:
+                    raise RuntimeError("Could not find Title input field")
 
                 # 4. Handle Media/Text
                 media_path = content.get('media_path')
                 if media_path and os.path.exists(media_path):
-                    # Upload image/video
-                    await page.set_input_files("input[type='file']", media_path)
+                    # Try to click the image upload button first if needed, 
+                    # then set input files on the hidden input element
+                    try:
+                        await page.set_input_files("input[type='file']", media_path, timeout=5000)
+                    except:
+                        raise RuntimeError("Failed to upload media file")
                 else:
                     # Fill body text for self-posts
-                    await page.fill("div[role='textbox']", content.get('body', ''))
+                    body_text = content.get('body', '')
+                    body_selectors = ["div[role='textbox']", "textarea[placeholder*='body']", "[aria-label*='body']"]
+                    body_filled = False
+                    for selector in body_selectors:
+                        try:
+                            await page.fill(selector, body_text, timeout=5000)
+                            body_filled = True
+                            break
+                        except:
+                            continue
+                    if not body_filled:
+                        raise RuntimeError("Could not find Body input field")
 
                 # 5. Submit
-                await page.click("button:has-text('Post')")
-                await page.wait_for_load_state("networkidle")
+                submit_selectors = ["button:has-text('Post')", "button[type='submit']", "button:has-text('Submit')"]
+                submit_clicked = False
+                for selector in submit_selectors:
+                    try:
+                        await page.click(selector, timeout=5000)
+                        submit_clicked = True
+                        break
+                    except:
+                        continue
+                if not submit_clicked:
+                    raise RuntimeError("Could not find Submit button")
                 
+                await page.wait_for_load_state("networkidle")
                 return page.url
 
             except Exception as e:
