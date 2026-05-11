@@ -1,0 +1,9 @@
+template:
+  id: "tank_game_post"
+  content:
+    reddit:
+      title: "Reliving the classic Tank game! Now playable directly in your browser."
+      body: "Check out this classic tank game. I've managed to get it running on the web. It's a great way to relive the nostalgia!"
+      media_path: "/Users/joviwang/Downloads/tank.png"
+  adapter_map:
+    reddit: "RedditBrowserAdapter"
