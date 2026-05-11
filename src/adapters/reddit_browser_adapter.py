@@ -15,20 +15,30 @@ class RedditBrowserAdapter(BaseAdapter):
         self.cookies = cookies
 
     async def _get_browser_context(self, playwright) -> tuple[BrowserContext, Page]:
-        # Use a realistic User-Agent to avoid "Blocked by network security"
-        user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        # If cookies are provided and we aren't in a specific "connect" mode", 
+        # we can either launch a new one or connect to an existing one.
+        # To support the "Connect to existing Chrome" mode, we check for a specific flag or config.
+        # For now, we'll implement a toggle or a fallback.
         
-        browser = await playwright.chromium.launch(headless=False)
-        context = await browser.new_context(
-            user_agent=user_agent,
-            viewport={'width': 1920, 'height': 1080},
-            locale="en-US"
-        )
-        
-        # Stealth: Remove the 'webdriver' flag to bypass bot detection
-        await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        
-        await context.add_cookies(self.cookies)
+        try:
+            # Attempt to connect to a running Chrome instance on port 9222
+            # This is the most robust way to bypass bot detection.
+            browser = await playwright.chromium.connect_over_cdp("http://localhost:9222")
+            context = browser.contexts[0] # Use the existing default context
+            print("Successfully connected to existing Chrome instance via CDP.")
+        except Exception as e:
+            print(f"Could not connect to existing Chrome (port 9222). Falling back to launched browser. Error: {e}")
+            # Fallback to the previous launched browser logic
+            user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            browser = await playwright.chromium.launch(headless=False)
+            context = await browser.new_context(
+                user_agent=user_agent,
+                viewport={'width': 1920, 'height': 1080},
+                locale="en-US"
+            )
+            await context.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+            await context.add_cookies(self.cookies)
+            
         page = await context.new_page()
         return context, page
 
